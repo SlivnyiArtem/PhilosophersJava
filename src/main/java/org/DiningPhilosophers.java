@@ -5,18 +5,35 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class DiningPhilosophers {
-
+    /**
+     * Философ. Предполагается что философы будут бесконечно думать или есть,
+     * чтобы возникала вероятность блокировок.
+     *
+     * Я использовал подход с использованием мониторов назначенных на конкурентные объекты(вилки) и
+     * постарался нивелировать livelock через приоритизацию долго ожидавших потоков,
+     * а также ассиметричную логику доступа к ресурсам. Когда хотя бы один философ нарушает порядок,
+     * позволяя остальным одновременно приступить к еде.
+     */
     static class Philosopher implements Runnable {
         private final int id;
         private final Lock leftFork;
         private final Lock rightFork;
-        private long starving_time;
+        private long starvingStartTime;
+
+        /**
+         *
+         * @param id - идентификатор начиная с 0
+         * @param leftFork - монитор, соответствующий левой вилке
+         * @param rightFork - ... правой
+         * param starvingStartTime - время с начала размышлений
+         *                  (считаем что начинаем хотеть есть в этот момент)
+         */
 
         public Philosopher(int id, Lock leftFork, Lock rightFork) {
             this.id = id;
             this.leftFork = leftFork;
             this.rightFork = rightFork;
-            this.starving_time = 0;
+            this.starvingStartTime = 0;
         }
 
         private void pickupLeft() {
@@ -41,7 +58,7 @@ public class DiningPhilosophers {
 
         private void think() throws InterruptedException {
             System.out.println("Философ " + id + " думает");
-            this.starving_time = System.currentTimeMillis();
+            this.starvingStartTime = System.currentTimeMillis();
             Thread.sleep((long) (Math.random() * 1000));
         }
 
@@ -54,8 +71,6 @@ public class DiningPhilosophers {
         public void run() {
             try {
                 while (true) {
-
-
                     think();
                     if (id == 0) {
                         pickupRight();
@@ -83,7 +98,9 @@ public class DiningPhilosophers {
                             putLeft();
                         }
                     }
-                    if (System.currentTimeMillis() - this.starving_time > 5000)
+
+                     //Регулировка долго простаивающих потоков через приоритизацию вызова
+                    if (System.currentTimeMillis() - this.starvingStartTime > 5000)
                         Thread.yield();
                 }
             } catch (InterruptedException e) {
@@ -95,17 +112,17 @@ public class DiningPhilosophers {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Сколько философов будут за столом?\n");
-        final int NUM_PHILOSOPHERS = scanner.nextInt();;
-        Philosopher[] philosophers = new Philosopher[NUM_PHILOSOPHERS];
-        Lock[] forks = new Lock[NUM_PHILOSOPHERS];
+        final int NUM = scanner.nextInt();;
+        Philosopher[] philosophers = new Philosopher[NUM];
+        Lock[] forks = new Lock[NUM];
 
-        for (int i = 0; i < NUM_PHILOSOPHERS; i++) {
+        for (int i = 0; i < NUM; i++) {
             forks[i] = new ReentrantLock();
         }
 
-        for (int i = 0; i < NUM_PHILOSOPHERS; i++) {
+        for (int i = 0; i < NUM; i++) {
             Lock leftFork = forks[i];
-            Lock rightFork = forks[(i + 1) % NUM_PHILOSOPHERS];
+            Lock rightFork = forks[(i + 1) % NUM];
 
             philosophers[i] = new Philosopher(i, leftFork, rightFork);
 
